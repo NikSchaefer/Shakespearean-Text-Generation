@@ -1,10 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras.layers.experimental import preprocessing
-
 import numpy as np
-import os
-import time
 
+
+IS_DEBUG = False
+SAVE_MODEL = True
 
 path_to_file = tf.keras.utils.get_file(
     "shakespeare.txt",
@@ -48,7 +48,10 @@ dataset = sequences.map(split_input_target)
 
 BATCH_SIZE = 64
 BUFFER_SIZE = 10000
-EPOCHS = 10
+EPOCHS = 20
+
+if IS_DEBUG:
+    EPOCHS = 1
 
 embedding_dim = 256
 rnn_units = 1024
@@ -105,14 +108,6 @@ for input_example_batch, target_example_batch in dataset.take(1):
     )  # (batch_size, sequence_length, vocab_size)
 
 
-# sampled_indices = tf.random.categorical(example_batch_predictions[0], num_samples=1)
-# sampled_indices = tf.squeeze(sampled_indices, axis=-1).numpy()
-
-# print("Input:\n", text_from_ids(input_example_batch[0]).numpy())
-# print("")
-# print("Next Char Predictions:\n", text_from_ids(sampled_indices).numpy())
-
-
 example_batch_loss = loss(target_example_batch, example_batch_predictions)
 
 mean_loss = example_batch_loss.numpy().mean()
@@ -125,6 +120,10 @@ model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
 
 
 history = model.fit(dataset, epochs=EPOCHS)
+
+if SAVE_MODEL:
+    model.save("save")
+    print("\n\nSaved.\n\n", "_" * 80)
 
 
 class OneStepModel(tf.keras.Model):
@@ -142,7 +141,7 @@ class OneStepModel(tf.keras.Model):
             indices=skip_ids,
             dense_shape=[len(ids_from_chars.get_vocabulary())],
         )
-        self.prediction_mask = tf.spare_to_dense(sparse_mask)
+        self.prediction_mask = tf.sparse.to_dense(sparse_mask)
 
     @tf.function
     def generate_one_step(self, inputs, states=None):
@@ -170,4 +169,18 @@ class OneStepModel(tf.keras.Model):
         # Return the characters and model state.
         return predicted_chars, states
 
+
 one_step_model = OneStepModel(model, chars_from_ids, ids_from_chars)
+
+states = None
+
+next_char = tf.constant(["ROMEO:"])
+result = [next_char]
+
+for n in range(1000):
+    next_char, states = one_step_model.generate_one_step(next_char, states=states)
+    result.append(next_char)
+
+result = tf.strings.join(result)
+
+print(result[0].numpy().decode("utf-8"), "\n\n" + "_" * 80)
