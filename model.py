@@ -4,7 +4,7 @@ import numpy as np
 
 
 IS_DEBUG = False
-SAVE_MODEL = True
+SAVE_MODEL = False
 
 path_to_file = tf.keras.utils.get_file(
     "shakespeare.txt",
@@ -15,7 +15,6 @@ text = open(path_to_file, "rb").read().decode(encoding="utf-8")
 
 vocab = sorted(set(text))
 vocab_size = len(vocab)
-
 
 ids_from_chars = preprocessing.StringLookup(vocabulary=list(vocab), mask_token=None)
 
@@ -122,14 +121,13 @@ model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
 history = model.fit(dataset, epochs=EPOCHS)
 
 if SAVE_MODEL:
-    model.save("save")
+    model.save("save", save_format="h5")
     print("\n\nSaved.\n\n", "_" * 80)
 
 
 class OneStepModel(tf.keras.Model):
-    def __init__(self, model, chars_from_ids, ids_from_chars, temp=1.0):
+    def __init__(self, model, chars_from_ids, ids_from_chars):
         super().__init__()
-        self.temperature = temp
         self.model = model
         self.chars_from_ids = chars_from_ids
         self.ids_from_chars = ids_from_chars
